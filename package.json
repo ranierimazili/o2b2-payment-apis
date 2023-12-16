@@ -1,0 +1,28 @@
+{
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jose": "^5.1.0",
+    "selfsigned": "^2.4.1",
+    "uuid": "^9.0.1"
+  },
+  "name": "o2b2-payment-apis",
+  "description": "Exemplo de implementação das API's de pagamento para execução dos testes de segurança do o2b2-auth-server",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ranierimazili/o2b2-payment-apis.git"
+  },
+  "author": "Ranieri Mazili",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ranierimazili/o2b2-payment-apis/issues"
+  },
+  "homepage": "https://github.com/ranierimazili/o2b2-payment-apis#readme",
+  "type": "module"
+}
