@@ -16,22 +16,12 @@ git clone https://github.com/ranierimazili/o2b2-payment-apis.git
 ```
 
 ### Criando os certificados para TLS
-Você pode usar certificados auto-assinados (como no exemplo abaixo) ou emitir através de uma AC de sua preferência.
+Como este serviço é utilizado apenas para testes e fica protegido por um proxy, os certificados são gerados em tempo de execução através da bilbioteca selfsigned.
 
-Primeiro você precisa escolher por qual hostname privado este servidor será chamado pelo seu proxy, neste exemplo utilizamos o hostname o2b2-payment-apis.
-
-Entre no diretório src/certs e execute os comandos abaixo para criar os certificados com openssl.
-
-**Atenção:** No segundo comando da lista, preencha a pergunta *"Common Name"* com o nome do seu hostname.
-```
-openssl genrsa -out key.pem 2048
-openssl req -new -key key.pem -out cert.csr
-openssl x509 -req -days 365 -in cert.csr -signkey key.pem -out cert.pem
-```
 ### Criando o certificado de assinatura
 Crie o certificado de assinatura conforme documentado no [Guia de Operação do Diretório Central](https://openfinancebrasil.atlassian.net/wiki/spaces/OF/pages/17378602/Guia+de+Opera+o+do+Diret+rio+Central).
 
-Copie a chave privada para o diretório src/certs e dê o nome signing.key para o arquivo.
+Copie a chave privada para o diretório src/certs e dê o nome signing.key para o arquivo ou caso prefira utilizar outro path e nome de arquivo, realize o apontamento para o caminho correto no arquivo .env.
 
 ### Configurando as varíaveis de ambiente
 Edite o arquivo .env preenchendo todas as variáveis.
