@@ -30,6 +30,20 @@ export const returnBadRequest = function() {
     }
 }
 
+export const returnNotFound = function() {
+    const currentDate = new Date();
+    return {
+        errors: [{
+            code: "RESOURCE_NOT_FOUND",
+            title: "Resource not found",
+            detail: "Resource not found"
+        }],
+        meta: {
+            requestDateTime: currentDate.toISOString()
+        }
+    }
+}
+
 export const returnBadSignature = function() {
     const currentDate = new Date();
     return {
@@ -44,7 +58,14 @@ export const returnBadSignature = function() {
     }
 }
 
-export const createPaymentConsentSignedResponse = async function(payload, clientOrganisationId) {
+export const signGetResponse = async function(payload, clientOrganisationId) {
+    const currentDate = new Date();
+    payload.meta.requestDateTime = currentDate;
+    const signedPayload = await signPayload(payload,clientOrganisationId);
+    return signedPayload;
+}
+
+export const createPaymentConsentSignedResponse = async function(payload, clientOrganisationId, db) {
     const currentDate = new Date();
 
     const response = {
@@ -65,14 +86,15 @@ export const createPaymentConsentSignedResponse = async function(payload, client
             requestDateTime: currentDate.toISOString()
         }
     }
-
+    db.save(response.data.consentId, response);
     const signedPayload = await signPayload(response,clientOrganisationId);
     return signedPayload;
 }
 
-export const createPaymentInitiationSignedResponse = async function(payload, clientOrganisationId, consentId) {
+export const createPaymentInitiationSignedResponse = async function(payload, clientOrganisationId, consentId, db) {
     const currentDate = new Date();
     let response = { ...payload }
+    response.data.paymentId = v4();
     response.data.consentId = consentId;
     response.data.creationDateTime = currentDate.toISOString();
     response.data.statusUpdateDateTime = currentDate.toISOString();
@@ -83,13 +105,34 @@ export const createPaymentInitiationSignedResponse = async function(payload, cli
         number: "1234567890",
         accountType: "CACC"  
     }
-    response.data.links = {
+    response.links = {
         self: "https://api.banco.com.br/open-banking/api/v1/resource"
     },
-    response.data.meta = {
+    response.meta = {
         requestDateTime: currentDate.toISOString()
     }
 
+    db.save(response.data.paymentId, response);
+    const signedPayload = await signPayload(response,clientOrganisationId);
+    return signedPayload;
+}
+
+export const patchPaymentInitiationSignedResponse = async function(payload, clientOrganisationId, paymentId, db) {
+    const currentDate = new Date();
+    let response = db.get(paymentId);
+    response.data.statusUpdateDateTime = currentDate.toISOString();
+    response.data.status = "CANC";
+    response.meta = {
+        requestDateTime: currentDate.toISOString()
+    }
+    response.cancellation = {
+        reason: "CANCELADO_AGENDAMENTO",
+        cancelledFrom: "INICIADORA",
+        cancelledAt: currentDate,
+        cancelledBy: payload.data.cancellation.cancelledBy
+    }
+
+    db.save(paymentId, response);
     const signedPayload = await signPayload(response,clientOrganisationId);
     return signedPayload;
 }

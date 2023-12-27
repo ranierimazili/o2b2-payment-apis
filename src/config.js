@@ -15,5 +15,7 @@ export default {
         createPayment: process.env.CREATE_PAYMENT_AUDIENCE
     },
     clientDetailsUrl: process.env.CLIENT_DETAILS_ENDPOINT,
-    consentIdPrefix: process.env.CONSENT_ID_PREFIX
+    consentIdPrefix: process.env.CONSENT_ID_PREFIX,
+    validateToken: process.env.VALIDATE_TOKEN === "true",
+    validateSignature: process.env.VALIDATE_SIGNATURE === "true"
 };

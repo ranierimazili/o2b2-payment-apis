@@ -2,7 +2,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 import * as crypto from 'node:crypto';
 import config from "./config.js";
-import { createLocalJWKSet, jwtVerify } from 'jose';
+import { createLocalJWKSet, jwtVerify, decodeJwt } from 'jose';
 
 const getCertThumbprint = function (cert) {
   let digest;
@@ -56,7 +56,7 @@ const introspectAccessToken = async function(bearerToken) {
 
 export const validateClientCredentialsPermissions = function (tokenDetails, clientCert) {
     if (!tokenDetails.active 
-        || tokenDetails.token_type !== "Bearer" 
+        || tokenDetails.token_type !== "token_type" 
         || !tokenDetails.scope.split(" ").includes("payments")
         || tokenDetails.cnf['x5t#S256'] !== getCertThumbprint(clientCert)) {
         return false;
@@ -65,18 +65,33 @@ export const validateClientCredentialsPermissions = function (tokenDetails, clie
 }
 
 export const validateAuthentication = async function(req) {
-    const tokenDetails = await introspectAccessToken(req.headers['authorization']);
-    console.log(tokenDetails);
-    if (!tokenDetails || !validateClientCredentialsPermissions(tokenDetails, unescape(req.headers['ssl-client-cert']))) {
-        return null;
+    if (config.validateToken) {
+        const tokenDetails = await introspectAccessToken(req.headers['authorization']);
+        if (!tokenDetails || !validateClientCredentialsPermissions(tokenDetails, unescape(req.headers['ssl-client-cert']))) {
+            return null;
+        }
+        return tokenDetails;
+    } else { //if in dev mode, return a mock tokenDetails
+        return {
+            active: true,
+            token_type: 'token_type',
+            scope: 'payments consent:urn:my_dummy_id',
+            client_id: 'dummy_client'
+        }
     }
-    return tokenDetails;
 }
 
-export const validateHeaders = function(req) {
+export const validatePostHeaders = function(req) {
     if (!req.headers['content-type'].split(';').includes('application/jwt')
     || !req.headers['x-fapi-interaction-id'] 
     || !req.headers['x-idempotency-key'] ) {
+        return false;
+    }
+    return true;
+}
+
+export const validateGetHeaders = function(req) {
+    if (!req.headers['x-fapi-interaction-id'] ) {
         return false;
     }
     return true;
@@ -131,16 +146,51 @@ const extractOrgIdFromJwksUri = function(url) {
 
 export const validateRequestBody = async function(req, clientId, audience) {
 	try {
-		const client = await getClientDetails(clientId);
-		const clientJwks = await getClientKeys(client.jwksUri);
-		const clientOrganisationId = extractOrgIdFromJwksUri(client.jwksUri);
-		const payload = await validateSignedRequest(clientJwks, clientOrganisationId, req.body, audience);
-		return {
-			payload,
-			clientOrganisationId
-		};
+        if (config.validateSignature) {
+            const client = await getClientDetails(clientId);
+            const clientJwks = await getClientKeys(client.jwksUri);
+            const clientOrganisationId = extractOrgIdFromJwksUri(client.jwksUri);
+            const payload = await validateSignedRequest(clientJwks, clientOrganisationId, req.body, audience);
+            return {
+                payload,
+                clientOrganisationId
+            };
+        } else { //if in dev mode, return a mock tokenDetails
+            const payload = decodeJwt(req.body);
+            const clientOrganisationId = 'mock_client_org_id';
+            return {
+                payload,
+                clientOrganisationId
+            };
+        }
 	} catch (e) {
 		console.log("Erro ao tentar validar os dados da requisição", e);
 		return;
 	}
+}
+
+export const validateGetConsentRequest = async function(req, clientId, db) {
+    const payload = db.get(req.params.consentId);
+    let clientOrganisationId = 'mock_client_org_id'
+    if (config.validateSignature) {
+        const client = await getClientDetails(clientId);    
+        clientOrganisationId = extractOrgIdFromJwksUri(client.jwksUri);
+    }
+    return {
+        payload,
+        clientOrganisationId
+    }
+}
+
+export const validateGetPaymentRequest = async function(req, clientId, db) {
+    const payload = db.get(req.params.paymentId);
+    let clientOrganisationId = 'mock_client_org_id'
+    if (config.validateSignature) {
+        const client = await getClientDetails(clientId);    
+        clientOrganisationId = extractOrgIdFromJwksUri(client.jwksUri);
+    }
+    return {
+        payload,
+        clientOrganisationId
+    }
 }
