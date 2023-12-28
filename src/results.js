@@ -136,3 +136,38 @@ export const patchPaymentInitiationSignedResponse = async function(payload, clie
     const signedPayload = await signPayload(response,clientOrganisationId);
     return signedPayload;
 }
+
+export const createEnrollmentSignedResponse = async function(payload, clientOrganisationId, db) {
+    const currentDate = new Date();
+
+    const response = {...payload};
+    response.data.enrollmentId = config.consentIdPrefix + v4();
+    response.data.creationDateTime = currentDate;
+    response.data.status = 'AWAITING_RISK_SIGNALS';
+    response.data.statusUpdateDateTime = currentDate;
+    response.links = {
+        self: "https://api.banco.com.br/open-banking/api/v1/resource"
+    }
+    response.meta = {
+        requestDateTime: currentDate.toISOString()
+    }
+    
+    db.save(response.data.enrollmentId, response);
+    const signedPayload = await signPayload(response,clientOrganisationId);
+    return signedPayload;
+}
+
+export const patchEnrollmentSignedResponse = async function(payload, clientOrganisationId, enrollmentId, db) {
+    const currentDate = new Date();
+    let response = db.get(enrollmentId);
+    response.data.cancellation = payload.data.cancellation;
+    response.data.cancellation.cancelledFrom = 'INICIADORA';
+    response.data.cancellation.rejectedAt = currentDate;
+    response.data.statusUpdateDateTime = currentDate.toISOString();
+    response.data.status = "REVOKED";
+
+    db.save(enrollmentId, response);
+    //TODO aqui o vínculo no servidor FIDO2 deveria também ser desfeito
+    const signedPayload = await signPayload(response,clientOrganisationId);
+    return signedPayload;
+}

@@ -194,3 +194,16 @@ export const validateGetPaymentRequest = async function(req, clientId, db) {
         clientOrganisationId
     }
 }
+
+export const validateGetRequest = async function(id, clientId, db) {
+    const payload = db.get(id);
+    let clientOrganisationId = 'mock_client_org_id'
+    if (config.validateSignature) {
+        const client = await getClientDetails(clientId);    
+        clientOrganisationId = extractOrgIdFromJwksUri(client.jwksUri);
+    }
+    return {
+        payload,
+        clientOrganisationId
+    }
+}

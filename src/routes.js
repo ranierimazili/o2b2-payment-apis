@@ -1,13 +1,13 @@
 import express from 'express';
-import { validateAuthentication, validatePostHeaders, validateGetHeaders, validateRequestBody, validateGetConsentRequest, validateGetPaymentRequest } from './validations.js';
-import { createPaymentConsentSignedResponse, createPaymentInitiationSignedResponse, patchPaymentInitiationSignedResponse, returnNotFound, returnBadRequest, returnBadSignature, returnUnauthorised, signGetResponse } from './results.js';
+import { validateAuthentication, validatePostHeaders, validateGetHeaders, validateRequestBody, validateGetRequest } from './validations.js';
+import { createEnrollmentSignedResponse, createPaymentConsentSignedResponse, createPaymentInitiationSignedResponse, patchPaymentInitiationSignedResponse, returnNotFound, returnBadRequest, returnBadSignature, returnUnauthorised, signGetResponse, patchEnrollmentSignedResponse } from './results.js';
 import config from './config.js'
 import MemoryAdapter from './persistence.js';
 
 const router = express.Router();
 const db = new MemoryAdapter();
 
-router.post('/consents', async (req, res) => {
+router.post('/payments/v3/consents', async (req, res) => {
     const tokenDetails = await validateAuthentication(req);
 
     if (!tokenDetails) {
@@ -34,7 +34,7 @@ router.post('/consents', async (req, res) => {
         .send(response);
 });
 
-router.get('/consents/:consentId', async (req, res) => {
+router.get('/payments/v3/consents/:consentId', async (req, res) => {
     const tokenDetails = await validateAuthentication(req);
 
     if (!tokenDetails) {
@@ -47,7 +47,7 @@ router.get('/consents/:consentId', async (req, res) => {
         return;
     }
 
-    const { payload, clientOrganisationId } = await validateGetConsentRequest(req, tokenDetails.client_id, db);
+    const { payload, clientOrganisationId } = await validateGetRequest(req.params.consentId, tokenDetails.client_id, db);
     if (!payload) {
         res.status(404).json(returnNotFound());
         return;
@@ -61,7 +61,7 @@ router.get('/consents/:consentId', async (req, res) => {
         .send(response);
 });
 
-router.post('/pix/payments', async (req, res) => {
+router.post('/payments/v3/pix/payments', async (req, res) => {
     const tokenDetails = await validateAuthentication(req);
 
     if (!tokenDetails) {
@@ -88,7 +88,7 @@ router.post('/pix/payments', async (req, res) => {
     }
 });
 
-router.get('/pix/payments/:paymentId', async (req, res) => {
+router.get('/payments/v3/pix/payments/:paymentId', async (req, res) => {
     const tokenDetails = await validateAuthentication(req);
 
     if (!tokenDetails) {
@@ -101,7 +101,7 @@ router.get('/pix/payments/:paymentId', async (req, res) => {
         return;
     }
     
-    const { payload, clientOrganisationId } = await validateGetPaymentRequest(req, tokenDetails.client_id, db);
+    const { payload, clientOrganisationId } = await validateGetRequest(req.params.paymentId, tokenDetails.client_id, db);
     if (!payload) {
         res.status(404).json(returnNotFound());
         return;
@@ -115,7 +115,7 @@ router.get('/pix/payments/:paymentId', async (req, res) => {
         .send(response);
 });
 
-router.patch('/pix/payments/:paymentId', async (req, res) => {
+router.patch('/payments/v3/pix/payments/:paymentId', async (req, res) => {
     const tokenDetails = await validateAuthentication(req);
 
     if (!tokenDetails) {
@@ -140,6 +140,87 @@ router.patch('/pix/payments/:paymentId', async (req, res) => {
         .type('application/jwt')
         .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
         .send(response);
+});
+
+router.post('/enrollments/v1/enrollments', async (req, res) => {
+    const tokenDetails = await validateAuthentication(req);
+
+    if (!tokenDetails) {
+        res.status(401).json(returnUnauthorised());
+        return;
+    }
+
+    if (!validatePostHeaders(req)) {
+        res.status(400).json(returnBadRequest());
+        return;
+    }
+
+    const { payload, clientOrganisationId } = await validateRequestBody(req, tokenDetails.client_id, config.audiences.createConsent);
+    if (!payload) {
+        res.status(400).json(returnBadSignature());
+        return;
+    } 
+    
+    const response = await createEnrollmentSignedResponse(payload, clientOrganisationId, db);
+        
+    res.status(201)
+        .type('application/jwt')
+        .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
+        .send(response);
+});
+
+router.get('/enrollments/v1/enrollments/:enrollmentId', async (req, res) => {
+    const tokenDetails = await validateAuthentication(req);
+
+    if (!tokenDetails) {
+        res.status(401).json(returnUnauthorised());
+        return;
+    }
+
+    if (!validateGetHeaders(req)) {
+        res.status(400).json(returnBadRequest());
+        return;
+    }
+
+    const { payload, clientOrganisationId } = await validateGetRequest(req.params.enrollmentId, tokenDetails.client_id, db);
+    if (!payload) {
+        res.status(404).json(returnNotFound());
+        return;
+    } 
+    
+    const response = await signGetResponse(payload, clientOrganisationId);
+        
+    res.status(200)
+        .type('application/jwt')
+        .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
+        .send(response);
+});
+
+router.patch('/enrollments/v1/enrollments/:enrollmentId', async (req, res) => {
+    const tokenDetails = await validateAuthentication(req);
+
+    if (!tokenDetails) {
+        res.status(401).json(returnUnauthorised());
+        return;
+    }
+
+    if (!validateGetHeaders(req)) {
+        res.status(400).json(returnBadRequest());
+        return;
+    }
+    
+    const { payload, clientOrganisationId } = await validateRequestBody(req, tokenDetails.client_id, config.audiences.createPayment);
+    if (!payload) {
+        res.status(404).json(returnNotFound());
+        return;
+    } 
+    
+    await patchEnrollmentSignedResponse(payload, clientOrganisationId, req.params.enrollmentId, db);
+        
+    res.status(204)
+        .type('application/jwt')
+        .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
+        .send();
 });
 
 export default router;

@@ -20,7 +20,7 @@ const options = {
 
 app.use(express.text({type: "application/jwt"}));
 app.use(express.urlencoded({ extended: true }));
-app.use('/open-banking/payments/v3', routes);
+app.use('/open-banking', routes);
 
 const server = https.createServer(options, app);
 
