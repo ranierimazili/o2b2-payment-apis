@@ -223,4 +223,31 @@ router.patch('/enrollments/v1/enrollments/:enrollmentId', async (req, res) => {
         .send();
 });
 
+router.post('/enrollments/v1/enrollments/:enrollmentId/fido-registration-options', async (req, res) => {
+    const tokenDetails = await validateAuthentication(req);
+
+    if (!tokenDetails) {
+        res.status(401).json(returnUnauthorised());
+        return;
+    }
+
+    if (!validatePostHeaders(req)) {
+        res.status(400).json(returnBadRequest());
+        return;
+    }
+
+    const { payload, clientOrganisationId } = await validateRequestBody(req, tokenDetails.client_id, config.audiences.createConsent);
+    if (!payload) {
+        res.status(400).json(returnBadSignature());
+        return;
+    } 
+    
+    const response = await createEnrollmentSignedResponse(payload, clientOrganisationId, db);
+        
+    res.status(201)
+        .type('application/jwt')
+        .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
+        .send(response);
+});
+
 export default router;
