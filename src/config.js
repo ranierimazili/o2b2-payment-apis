@@ -17,5 +17,8 @@ export default {
     clientDetailsUrl: process.env.CLIENT_DETAILS_ENDPOINT,
     consentIdPrefix: process.env.CONSENT_ID_PREFIX,
     validateToken: process.env.VALIDATE_TOKEN === "true",
-    validateSignature: process.env.VALIDATE_SIGNATURE === "true"
+    validateSignature: process.env.VALIDATE_SIGNATURE === "true",
+    fido: {
+        createAttestationEndpoint: process.env.FIDO_CREATE_ATTESTATION_ENDPOINT
+    }
 };

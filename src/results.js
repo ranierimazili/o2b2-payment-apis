@@ -171,3 +171,66 @@ export const patchEnrollmentSignedResponse = async function(payload, clientOrgan
     const signedPayload = await signPayload(response,clientOrganisationId);
     return signedPayload;
 }
+
+export const postFidoRegistrationOptionsSignedResponse = async function(payload, clientOrganisationId, enrollmentId, db) {
+    const fidoRequest = {...payload.data, enrollmentId};
+    const fidoResponse = await createAttestationOnFidoServer(fidoRequest);
+    const currentDate = new Date();
+    const response = {
+        data: {
+          enrollmentId: enrollmentId,
+          rp: fidoResponse.rp,
+          user: {
+            id: "string",
+            name: "string",
+            displayName: "string"
+          },
+          challenge: fidoResponse.challenge,
+          pubKeyCredParams: fidoResponse.pubKeyCredParams,
+          timeout: fidoResponse.timeout,
+          authenticatorSelection: fidoResponse.authenticatorSelection,
+          attestation: fidoResponse.attestation,
+        },
+        links: {
+          self: "https://api.banco.com.br/open-banking/api/v1/resource"
+        },
+        meta: {
+          requestDateTime: currentDate
+        }
+      };
+    const signedPayload = await signPayload(response,clientOrganisationId);
+    return signedPayload;
+}
+
+export const postEnrollmentRiskSignals = async function(payload, clientOrganisationId, enrollmentId, db) {
+    const currentDate = new Date();
+    let response = db.get(enrollmentId);
+    response.data.statusUpdateDateTime = currentDate.toISOString();
+    response.data.status = "AWAITING_ACCOUNT_HOLDER_VALIDATION";
+    db.save(enrollmentId, response);
+}
+
+export const postFidoRegistrationSignedResponse = async function(payload, clientOrganisationId, enrollmentId, db) {
+    //TODO enviar o conteudo para o servidor FIDO e processar a resposta
+}
+
+const createAttestationOnFidoServer = async function(payload) {
+    try {
+        const url = config.fido.createAttestationEndpoint;
+
+        const requestOptions = {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        };
+        const res = await fetch(url, requestOptions);
+        const json = await res.json();
+
+        return json;
+    } catch (e) {
+        console.log("Não foi possível realizar a criação do attestation", e);
+        return;
+    }
+}

@@ -1,6 +1,6 @@
 import express from 'express';
 import { validateAuthentication, validatePostHeaders, validateGetHeaders, validateRequestBody, validateGetRequest } from './validations.js';
-import { createEnrollmentSignedResponse, createPaymentConsentSignedResponse, createPaymentInitiationSignedResponse, patchPaymentInitiationSignedResponse, returnNotFound, returnBadRequest, returnBadSignature, returnUnauthorised, signGetResponse, patchEnrollmentSignedResponse } from './results.js';
+import { postFidoRegistrationSignedResponse, postEnrollmentRiskSignals, postFidoRegistrationOptionsSignedResponse, createEnrollmentSignedResponse, createPaymentConsentSignedResponse, createPaymentInitiationSignedResponse, patchPaymentInitiationSignedResponse, returnNotFound, returnBadRequest, returnBadSignature, returnUnauthorised, signGetResponse, patchEnrollmentSignedResponse } from './results.js';
 import config from './config.js'
 import MemoryAdapter from './persistence.js';
 
@@ -223,6 +223,33 @@ router.patch('/enrollments/v1/enrollments/:enrollmentId', async (req, res) => {
         .send();
 });
 
+router.post('/enrollments/v1/enrollments/:enrollmentId/risk-signals', async (req, res) => {
+    const tokenDetails = await validateAuthentication(req);
+
+    if (!tokenDetails) {
+        res.status(401).json(returnUnauthorised());
+        return;
+    }
+
+    if (!validatePostHeaders(req)) {
+        res.status(400).json(returnBadRequest());
+        return;
+    }
+
+    const { payload, clientOrganisationId } = await validateRequestBody(req, tokenDetails.client_id, config.audiences.createConsent);
+    if (!payload) {
+        res.status(400).json(returnBadSignature());
+        return;
+    } 
+    
+    await postEnrollmentRiskSignals(payload, clientOrganisationId, req.params.enrollmentId, db);
+        
+    res.status(204)
+        .type('application/jwt')
+        .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
+        .send();
+});
+
 router.post('/enrollments/v1/enrollments/:enrollmentId/fido-registration-options', async (req, res) => {
     const tokenDetails = await validateAuthentication(req);
 
@@ -242,12 +269,41 @@ router.post('/enrollments/v1/enrollments/:enrollmentId/fido-registration-options
         return;
     } 
     
-    const response = await createEnrollmentSignedResponse(payload, clientOrganisationId, db);
+    const response = await postFidoRegistrationOptionsSignedResponse(payload, clientOrganisationId, req.params.enrollmentId, db);
         
     res.status(201)
         .type('application/jwt')
         .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
         .send(response);
 });
+
+router.post('/enrollments/v1/enrollments/:enrollmentId/fido-registration', async (req, res) => {
+    const tokenDetails = await validateAuthentication(req);
+
+    if (!tokenDetails) {
+        res.status(401).json(returnUnauthorised());
+        return;
+    }
+
+    if (!validatePostHeaders(req)) {
+        res.status(400).json(returnBadRequest());
+        return;
+    }
+
+    const { payload, clientOrganisationId } = await validateRequestBody(req, tokenDetails.client_id, config.audiences.createConsent);
+    if (!payload) {
+        res.status(400).json(returnBadSignature());
+        return;
+    } 
+    
+    const response = await postFidoRegistrationSignedResponse(payload, clientOrganisationId, req.params.enrollmentId, db);
+        
+    res.status(201)
+        .type('application/jwt')
+        .set('x-fapi-interaction-id', req.headers['x-fapi-interaction-id'])
+        .send(response);
+});
+
+
 
 export default router;
